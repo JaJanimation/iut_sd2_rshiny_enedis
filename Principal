@@ -28,8 +28,12 @@ credentials <- data.frame(
 )
 
 # Chargement des données
-data_neuf <- read.csv("dpe_neuf.csv")
-data_existant <- read.csv("dpe_existant.csv")
+url1 <- "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/dpe_existants.csv"
+url2 <- "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/dpe_neufs.csv"
+
+data_existant <- read.csv(url1, sep = ",", encoding = "UTF-8")
+data_neuf <- read.csv(url2, sep = ",", encoding = "UTF-8")
+
 data_neuf$source <- "Neuf"
 data_existant$source <- "Existant"
 data_all <- rbind(data_neuf, data_existant)
@@ -156,7 +160,7 @@ server <- function(input, output, session) {
   })
 
   output$plot_boite <- renderPlot({
-    ggplot(data_filtrée(), aes(x = typologie_logement, y = conso_5.usages_par_m2_ef)) +
+    ggplot(data_filtrée(), aes(x = typologie_logement, y = conso_5_usages_par_m2_ef)) +
       geom_boxplot(fill = "orange") +
       labs(x = "Type de logement", y = "Consommation par m² (kWh/m²)")
   })
@@ -167,7 +171,7 @@ server <- function(input, output, session) {
       labs(x = "Type d'énergie", y = "Nombre de logements")
   })
 
-  output$plot_nuage <- renderPlot({
+   output$plot_nuage <- renderPlot({
     ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
       geom_point(alpha = 0.5, color = "darkblue") +
       geom_smooth(method = "lm", se = FALSE, color = "red") +
