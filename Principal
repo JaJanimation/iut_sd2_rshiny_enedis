@@ -67,6 +67,12 @@ ui <- secure_app(fluidPage(
         downloadButton("export_csv", "Télécharger les données filtrées"),
         h3("Statistiques"),
         verbatimTextOutput("stats_resume"),
+        h3("Indicateurs clés"),
+        textOutput("kpi_logements"),
+        textOutput("kpi_conso_totale"),
+        textOutput("kpi_conso_m2"),
+        verbatimTextOutput("kpi_source"),
+        verbatimTextOutput("kpi_dpe"),
         h3("Répartition des classes DPE"),
         plotOutput("hist_dpe"),
         downloadButton("export_hist", "Télécharger le graphique")
@@ -147,6 +153,29 @@ server <- function(input, output, session) {
 
   output$stats_resume <- renderPrint({ summary(data_filtrée()) })
 
+  output$kpi_logements <- renderText({
+    paste("Logements filtrés :", nrow(data_filtrée()))
+  })
+  
+  output$kpi_conso_totale <- renderText({
+    moyenne <- mean(data_filtrée()$conso_5_usages_ef, na.rm = TRUE)
+    paste("Consommation finale moyenne :", round(moyenne, 1), "kWh")
+  })
+  
+  output$kpi_conso_m2 <- renderText({
+    moyenne_m2 <- mean(data_filtrée()$conso_5_usages_par_m2_ef, na.rm = TRUE)
+    paste("Consommation par m² moyenne :", round(moyenne_m2, 1), "kWh/m²")
+  })
+  
+  output$kpi_source <- renderPrint({
+    table(data_filtrée()$source)
+  })
+  
+  output$kpi_dpe <- renderPrint({
+    table(data_filtrée()$etiquette_dpe)
+  })
+
+
   output$hist_dpe <- renderPlot({
     ggplot(data_filtrée(), aes(x = etiquette_dpe)) +
       geom_bar(fill = "steelblue") +
@@ -223,7 +252,7 @@ server <- function(input, output, session) {
     content = function(file) {
       png(file, width = 800, height = 600)
       print(
-        ggplot(data_filtrée(), aes(x = typologie_logement, y = conso_5.usages_par_m2_ef)) +
+        ggplot(data_filtrée(), aes(x = typologie_logement, y = conso_5_usages_par_m2_ef)) +
           geom_boxplot(fill = "orange") +
           labs(x = "Type de logement", y = "Consommation par m² (kWh/m²)")
       )
