@@ -1,290 +1,366 @@
-install.packages("shiny")
-install.packages("DT")
-install.packages("ggplot2")
-install.packages("leaflet")
-install.packages("bslib")
-install.packages("thematic")
-install.packages("shinymanager")
+# install.packages("shiny")
+# install.packages("DT")
+# install.packages("ggplot2")
+# install.packages("leaflet")
+# install.packages("bslib")
+# install.packages("thematic")
 
+# install.packages("rsconnect")
+# install.packages("jsonlite")
+# install.packages("httr")
 
 library(shiny)
 library(DT)
 library(ggplot2)
-library(leaflet)
-library(bslib)
+#library(leaflet)
+
 library(thematic)
-library(shinymanager)
 
-thematic::thematic_shiny()
+library(httr)
+library(jsonlite)
+library(rsconnect)
 
-identifiants <- data.frame(
-  user = c("admin",),
-  password = c("admin"),
-  stringsAsFactors = FALSE
-)
+# rsconnect::setAccountInfo(name='jajalcoholic',
+#                           token='154ECBCFA2EAA985A5EA2CC92AD638A1',
+#                           secret='vIBRjZZy1/M13b1guisz0kqCrSEkNDbCa24SnV0f')
+# rsconnect::deployApp()
 
 # Chargement des données
-url1 <- "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/dpe_existants.csv"
-url2 <- "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/dpe_neufs.csv"
+# Existants
+url1 <- "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?page=1&size=1000&q=code_insee%3A69"
+res1 <- GET(url1)
+data1 <- fromJSON(content(res1, "text"), flatten = TRUE)
 
-data_existant <- read.csv(url1, sep = ",", encoding = "UTF-8")
-data_neuf <- read.csv(url2, sep = ",", encoding = "UTF-8")
+df1 <- data1$results
 
+# Sélectionne uniquement les colonnes utiles
+data_existant <- df1[, c(
+  "type_energie_n1",
+  "surface_habitable_logement",
+  "typologie_logement",
+  "etiquette_dpe",
+  "conso_5_usages_ef",
+  "conso_5_usages_par_m2_ef",
+  "coordonnee_cartographique_x_ban",
+  "coordonnee_cartographique_y_ban"
+)]
+
+#View(data_existant)
+
+# Neuf
+url2 <- "https://data.ademe.fr/data-fair/api/v1/datasets/dpe02neuf/lines?page=1&size=1000&q=code_insee%3A69"
+res2 <- GET(url2)
+data2 <- fromJSON(content(res2, "text"), flatten = TRUE)
+
+df2 <- data2$results
+
+# Sélectionne uniquement les colonnes utiles
+data_neuf <- df2[, c(
+  "type_energie_n1",
+  "surface_habitable_logement",
+  "typologie_logement",
+  "etiquette_dpe",
+  "conso_5_usages_ef",
+  "conso_5_usages_par_m2_ef",
+  "coordonnee_cartographique_x_ban",
+  "coordonnee_cartographique_y_ban"
+)]
+
+#View(data_neuf)
+
+# Combinaison des df
 data_neuf$source <- "Neuf"
 data_existant$source <- "Existant"
 data_all <- rbind(data_neuf, data_existant)
+data_all <- subset(data_all,
+                   !is.na(coordonnee_cartographique_x_ban) &
+                     !is.na(coordonnee_cartographique_y_ban))
 
-# Logo Enedis
+
+#View(data_all)
+
 logo_ui <- tags$div(
-  style = "position: absolute; top: 10px; left: 10px; z-index: 1000;",
+  style = "position: absolute; top: 10px; right: 10px; z-index: 1000;",
   tags$img(src = "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/enedis_logo.png", height = "50px")
 )
 
-# Interface utilisateur
-ui <- secure_app(fluidPage(
-  theme = bs_theme(version = 5, bootswatch = "darkly"),
-
-  # Sélecteur de thème
-  fluidRow(
-    column(1, tags$i(class = "fas fa-moon fa-lg", style = "color: #ccc;")),
-    column(10, sliderInput("theme_slider", label = NULL, min = 0, max = 1, value = 0, step = 1)),
-    column(1, tags$i(class = "fas fa-sun fa-lg", style = "color: #f5c518;"))
+ui <- navbarPage(
+  title = div("Consommation énergétique et DPE", logo_ui),
+  
+  tabPanel(tagList(icon("info-circle"), "Contexte"),
+           fluidPage(
+             h2("Contexte de l'application"),
+             p("Enedis souhaite évaluer l'impact de la classe DPE sur la consommation des logements."),
+             h3("Données disponibles"),
+             selectInput("filtre_source", "Filtrer par source :", choices = c("Tous", "Neuf", "Existant")),
+             selectInput("filtre_energie", "Filtrer par énergie :", choices = c("Tous", sort(unique(data_all$type_energie_n1)))),
+             selectInput("filtre_dpe", "Filtrer par classe DPE :", choices = c("Tous", sort(unique(data_all$etiquette_dpe)))),
+             DT::dataTableOutput("table_apercu"),
+             downloadButton("export_csv", "Télécharger les données filtrées"),
+             h3("Statistiques"),
+             verbatimTextOutput("stats_resume"),
+             h3("Indicateurs clés sur la consommation énergétique"),
+             textOutput("kpi_logements"),
+             textOutput("kpi_conso_totale"),
+             textOutput("kpi_conso_m2"),
+             verbatimTextOutput("kpi_source"),
+             verbatimTextOutput("kpi_dpe"),
+             h3("Répartition des classes DPE"),
+             plotOutput("hist_dpe"),
+             downloadButton("export_hist_contexte", "Télécharger le graphique")
+             
+           )
   ),
-
-  navbarPage("Consommation énergétique et DPE",
-
-    tabPanel(tagList(icon("info-circle"), "Contexte"),
-      fluidPage(
-        logo_ui,
-        h2("Contexte de l'application"),
-        p("Enedis souhaite évaluer l'impact de la classe DPE sur la consommation des logements."),
-        h3("Données disponibles"),
-        DT::dataTableOutput("table_apercu"),
-        downloadButton("export_csv", "Télécharger les données filtrées"),
-        h3("Statistiques"),
-        verbatimTextOutput("stats_resume"),
-        h3("Indicateurs clés"),
-        textOutput("kpi_logements"),
-        textOutput("kpi_conso_totale"),
-        textOutput("kpi_conso_m2"),
-        verbatimTextOutput("kpi_source"),
-        verbatimTextOutput("kpi_dpe"),
-        h3("Répartition des classes DPE"),
-        plotOutput("hist_dpe"),
-        downloadButton("export_hist", "Télécharger le graphique")
-      )
-    ),
-
-    tabPanel(tagList(icon("chart-bar"), "Analyse et Visualisation"),
-      sidebarLayout(
-        sidebarPanel(
-          logo_ui,
-          checkboxGroupInput("source_dpe", "Source DPE :", choices = c("Neuf", "Existant"), selected = c("Neuf", "Existant")),
-          checkboxGroupInput("energie", "Type d'énergie :", choices = NULL),
-          sliderInput("surface", "Surface habitable (m²) :", min = 0, max = 300, value = c(0, 300)),
-          radioButtons("typologie", "Type de logement :", choices = NULL),
-          actionButton("reset", "Réinitialiser les filtres")
-        ),
-        mainPanel(
-          h3("Histogramme des classes DPE"),
-          plotOutput("plot_histogramme"),
-          downloadButton("export_hist", "Télécharger le graphique"),
-
-          h3("Boîte à moustaches : consommation par m²"),
-          plotOutput("plot_boite"),
-          downloadButton("export_boite", "Télécharger le graphique"),
-
-          h3("Diagramme des types d'énergie"),
-          plotOutput("plot_diagramme"),
-          downloadButton("export_diagramme", "Télécharger le graphique"),
-
-          h3("Nuage de points : surface vs consommation"),
-          plotOutput("plot_nuage"),
-          downloadButton("export_nuage", "Télécharger le graphique")
-        )
-      )
-    ),
-
-    tabPanel(tagList(icon("map-marked-alt"), "Carte interactive"),
-      fluidPage(
-        logo_ui,
-        h3("Localisation des logements avec DPE"),
-        leafletOutput("map_dpe", height = "600px")
-      )
-    )
+  
+  tabPanel(tagList(icon("chart-bar"), "Analyse et Visualisation"),
+           sidebarLayout(
+             sidebarPanel(
+               checkboxGroupInput("source_dpe", "Source DPE :", choices = c("Neuf", "Existant"), selected = c("Neuf", "Existant")),
+               checkboxGroupInput("energie", "Type d'énergie :", choices = NULL),
+               sliderInput("surface", "Surface habitable (m²) :", min = 0, max = 300, value = c(0, 300)),
+               actionButton("reset", "Réinitialiser les filtres")
+             ),
+             mainPanel(
+               h3("Histogramme des classes DPE"),
+               plotOutput("plot_histogramme"),
+               downloadButton("export_hist", "Télécharger le graphique"),
+               
+               h3("Boîte à moustaches : consommation par m²"),
+               plotOutput("plot_boite"),
+               downloadButton("export_boite", "Télécharger le graphique"),
+               
+               h3("Diagramme des types d'énergie"),
+               plotOutput("plot_diagramme"),
+               downloadButton("export_diagramme", "Télécharger le graphique"),
+               
+               h3("Nuage de points : surface vs consommation"),
+               plotOutput("plot_nuage"),
+               downloadButton("export_nuage", "Télécharger le graphique")
+             )
+           )
   )
 )
 
+
+
 server <- function(input, output, session) {
-  res_auth <- secure_server(check_identifiants = check_identifiants(identifiants))
-
+  
+  # Initialisation des filtres dynamiques
   observe({
-    theme_choice <- if (input$theme_slider == 0) "darkly" else "flatly"
-    session$setCurrentTheme(bs_theme(version = 5, bootswatch = theme_choice))
+    updateCheckboxGroupInput(session, "energie", choices = unique(data_all$type_energie_n1))
   })
-
-  observe({
-    updateCheckboxGroupInput(session, "energie", choices = unique(data_all$type_energie_n1), selected = unique(data_all$type_energie_n1))
-    updateRadioButtons(session, "typologie", choices = unique(data_all$typologie_logement), selected = unique(data_all$typologie_logement)[1])
-  })
-
-  observeEvent(input$reset, {
-    updateCheckboxGroupInput(session, "source_dpe", selected = c("Neuf", "Existant"))
-    updateCheckboxGroupInput(session, "energie", selected = unique(data_all$type_energie_n1))
-    updateSliderInput(session, "surface", value = c(0, 300))
-    updateRadioButtons(session, "typologie", selected = unique(data_all$typologie_logement)[1])
-  })
-
+  
+  # Filtrage des données
   data_filtrée <- reactive({
     subset(data_all,
-      source %in% input$source_dpe &
-      type_energie_n1 %in% input$energie &
-      surface_habitable_logement >= input$surface[1] &
-      surface_habitable_logement <= input$surface[2] &
-      typologie_logement == input$typologie
+           source %in% input$source_dpe &
+             type_energie_n1 %in% input$energie &
+             surface_habitable_logement >= input$surface[1] &
+             surface_habitable_logement <= input$surface[2])
+  })
+  data_contexte <- reactive({
+  df <- data_all
+  
+  if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
+    df <- df[df$source == input$filtre_source, ]
+  }
+  if (!is.null(input$filtre_energie) && input$filtre_energie != "Tous") {
+    df <- df[df$type_energie_n1 == input$filtre_energie, ]
+  }
+  if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
+    df <- df[df$etiquette_dpe == input$filtre_dpe, ]
+  }
+  
+  df
+  })
+  
+  
+  # Onglet Contexte
+  output$table_apercu <- DT::renderDataTable({
+    df <- data_all
+    
+    # Appliquer les filtres
+    if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
+      df <- df[df$source == input$filtre_source, ]
+    }
+    if (!is.null(input$filtre_energie) && input$filtre_energie != "Tous") {
+      df <- df[df$type_energie_n1 == input$filtre_energie, ]
+    }
+    if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
+      df <- df[df$etiquette_dpe == input$filtre_dpe, ]
+    }
+    
+    # Réorganiser les colonnes si besoin
+    df <- df[, c(
+      "type_energie_n1",
+      "surface_habitable_logement",
+      "typologie_logement",
+      "etiquette_dpe",
+      "conso_5_usages_ef",
+      "conso_5_usages_par_m2_ef",
+      "coordonnee_cartographique_x_ban",
+      "coordonnee_cartographique_y_ban",
+      "source"
+    )]
+    
+    # Renommer les colonnes pour l'affichage
+    colnames(df) <- c(
+      "Type d'énergie",
+      "Surface habitable (m²)",
+      "Typologie du logement",
+      "Classe DPE",
+      "Consommation totale (kWh)",
+      "Consommation par m² (kWh/m²)",
+      "Coordonnée X",
+      "Coordonnée Y",
+      "Source"
     )
-  })
-
-  output$table_apercu <- DT::renderDataTable({ data_filtrée() })
-
-  output$stats_resume <- renderPrint({ summary(data_filtrée()) })
-
-  output$kpi_logements <- renderText({
-    paste("Logements filtrés :", nrow(data_filtrée()))
+    
+    datatable(df)
   })
   
-  output$kpi_conso_totale <- renderText({
-    moyenne <- mean(data_filtrée()$conso_5_usages_ef, na.rm = TRUE)
-    paste("Consommation finale moyenne :", round(moyenne, 1), "kWh")
-  })
   
-  output$kpi_conso_m2 <- renderText({
-    moyenne_m2 <- mean(data_filtrée()$conso_5_usages_par_m2_ef, na.rm = TRUE)
-    paste("Consommation par m² moyenne :", round(moyenne_m2, 1), "kWh/m²")
-  })
-  
-  output$kpi_source <- renderPrint({
-    table(data_filtrée()$source)
-  })
-  
-  output$kpi_dpe <- renderPrint({
-    table(data_filtrée()$etiquette_dpe)
-  })
-
-
-  output$hist_dpe <- renderPlot({
-    ggplot(data_filtrée(), aes(x = etiquette_dpe)) +
-      geom_bar(fill = "steelblue") +
-      labs(x = "Classe DPE", y = "Nombre de logements")
-  })
-
-  output$plot_histogramme <- renderPlot({
-    ggplot(data_filtrée(), aes(x = etiquette_dpe)) +
-      geom_bar(fill = "steelblue") +
-      labs(x = "Classe DPE", y = "Nombre de logements")
-  })
-
-  output$plot_boite <- renderPlot({
-    ggplot(data_filtrée(), aes(x = typologie_logement, y = conso_5_usages_par_m2_ef)) +
-      geom_boxplot(fill = "orange") +
-      labs(x = "Type de logement", y = "Consommation par m² (kWh/m²)")
-  })
-
-  output$plot_diagramme <- renderPlot({
-    ggplot(data_filtrée(), aes(x = type_energie_n1)) +
-      geom_bar(fill = "purple") +
-      labs(x = "Type d'énergie", y = "Nombre de logements")
-  })
-
-   output$plot_nuage <- renderPlot({
-    ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
-      geom_point(alpha = 0.5, color = "darkblue") +
-      geom_smooth(method = "lm", se = FALSE, color = "red") +
-      labs(x = "Surface habitable (m²)", y = "Consommation (kWh)")
-  })
-
-  output$map_dpe <- renderLeaflet({
-    leaflet(data_filtrée()) %>%
-      addTiles() %>%
-      addCircleMarkers(
-        lng = ~coordonnee_cartographique_x_ban,
-        lat = ~coordonnee_cartographique_y_ban,
-        radius = 4,
-        color = "blue",
-        popup = ~paste("Classe DPE :", etiquette_dpe)
-      )
-  })
-
-  # Export CSV
   output$export_csv <- downloadHandler(
-    filename = function() {
-      paste0("donnees_filtrees_", Sys.Date(), ".csv")
-    },
+    filename = function() {"donnees_filtrees.csv"},
     content = function(file) {
       write.csv(data_filtrée(), file, row.names = FALSE)
     }
   )
+  
+  output$stats_resume <- renderPrint({
+    x <- data_contexte()$conso_5_usages_ef
+    stats <- summary(x)
+    cat("Statistiques sur la consommation énergétique totale (conso_5_usages_ef) :\n\n")
+    cat("Minimum :", stats["Min."], "kWh\n")
+    cat("1er quartile (25%) :", stats["1st Qu."], "kWh\n")
+    cat("Médiane (50%) :", stats["Median"], "kWh\n")
+    cat("Moyenne :", round(stats["Mean"], 2), "kWh\n")
+    cat("3e quartile (75%) :", stats["3rd Qu."], "kWh\n")
+    cat("Maximum :", stats["Max."], "kWh\n")
+  })
+  
 
-  # Export PNGs
-  output$export_hist <- downloadHandler(
-    filename = function() {
-      paste0("histogramme_dpe_", Sys.Date(), ".png")
-    },
-    content = function(file) {
-      png(file, width = 800, height = 600)
-      print(
-        ggplot(data_filtrée(), aes(x = etiquette_dpe)) +
-          geom_bar(fill = "steelblue") +
-          labs(x = "Classe DPE", y = "Nombre de logements")
-      )
-      dev.off()
+  
+  output$kpi_logements <- renderText({
+    paste("Nombre de logements :", nrow(data_contexte()))
+  })
+  
+  
+  output$kpi_conso_totale <- renderText({
+    paste("Consommation totale (kWh) :", round(sum(data_contexte()$conso_5_usages_ef, na.rm = TRUE)))
+  })
+  
+  
+  output$kpi_conso_m2 <- renderText({
+    paste("Consommation moyenne par m² :", round(mean(data_contexte()$conso_5_usages_par_m2_ef, na.rm = TRUE), 2))
+  })
+  
+  
+  output$kpi_source <- renderPrint({
+    tab <- table(data_contexte()$source)
+    cat("Répartition des logements par source :\n\n")
+    for (i in names(tab)) {
+      cat("- ", i, ":", tab[[i]], "logements\n")
     }
-  )
+  })
+  
+  
+  
+  output$kpi_dpe <- renderPrint({
+    tab <- table(data_contexte()$etiquette_dpe)
+    cat("Répartition des logements par classe DPE :\n\n")
+    for (i in names(tab)) {
+      cat("- Classe", i, ":", tab[[i]], "logements\n")
+    }
+  })
+  
+  
+  
+  output$hist_dpe <- renderPlot({
+  df <- data_all
+  
+  if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
+    df <- df[df$source == input$filtre_source, ]
+  }
+  if (!is.null(input$filtre_energie) && input$filtre_energie != "Tous") {
+    df <- df[df$type_energie_n1 == input$filtre_energie, ]
+  }
+  if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
+    df <- df[df$etiquette_dpe == input$filtre_dpe, ]
+  }
+  
+  titre <- switch(input$filtre_source,
+                  "Neuf" = "Répartition des classes DPE (Logements neufs)",
+                  "Existant" = "Répartition des classes DPE (Logements existants)",
+                  "Tous" = "Répartition des classes DPE (Tous les logements)")
+  
+  ggplot(df, aes(x = etiquette_dpe)) +
+    geom_bar(fill = "steelblue") +
+    theme_minimal() +
+    labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
+  })
+  
+  
+  output$export_hist_contexte <- downloadHandler(
+  filename = function() {"repartition_dpe.png"},
+  content = function(file) {
+    df <- data_all
+    
+    if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
+      df <- df[df$source == input$filtre_source, ]
+    }
+    if (!is.null(input$filtre_energie) && input$filtre_energie != "Tous") {
+      df <- df[df$type_energie_n1 == input$filtre_energie, ]
+    }
+    if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
+      df <- df[df$etiquette_dpe == input$filtre_dpe, ]
+    }
+    
+    titre <- switch(input$filtre_source,
+                    "Neuf" = "Répartition des classes DPE (Neuf)",
+                    "Existant" = "Répartition des classes DPE (Existant)",
+                    "Tous" = "Répartition des classes DPE (Tous logements)")
+    
+    png(file)
+    print(
+      ggplot(df, aes(x = etiquette_dpe)) +
+        geom_bar(fill = "steelblue") +
+        theme_minimal() +
+        labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
+    )
+      dev.off()
+    })
+  
+  # Onglet Analyse
+  output$plot_histogramme <- renderPlot({
+    ggplot(data_filtrée(), aes(x = etiquette_dpe)) +
+      geom_bar(fill = "darkorange") +
+      theme_minimal()
+  })
+  
+  output$plot_boite <- renderPlot({
+    ggplot(data_filtrée(), aes(x = etiquette_dpe, y = conso_5_usages_par_m2_ef)) +
+      geom_boxplot(fill = "lightgreen") +
+      theme_minimal()
+  })
+  
+  output$plot_diagramme <- renderPlot({
+    ggplot(data_filtrée(), aes(x = type_energie_n1)) +
+      geom_bar(fill = "purple") +
+      theme_minimal() +
+      coord_flip()
+  })
+  
+  output$plot_nuage <- renderPlot({
+    ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
+      geom_point(alpha = 0.5, color = "darkblue") +
+      theme_minimal()
+  })
+  
 
-  output$export_boite <- downloadHandler(
-    filename = function() {
-      paste0("boite_moustaches_", Sys.Date(), ".png")
-    },
-    content = function(file) {
-      png(file, width = 800, height = 600)
-      print(
-        ggplot(data_filtrée(), aes(x = typologie_logement, y = conso_5_usages_par_m2_ef)) +
-          geom_boxplot(fill = "orange") +
-          labs(x = "Type de logement", y = "Consommation par m² (kWh/m²)")
-      )
-      dev.off()
-    }
-  )
-    output$export_diagramme <- downloadHandler(
-    filename = function() {
-      paste0("diagramme_energie_", Sys.Date(), ".png")
-    },
-    content = function(file) {
-      png(file, width = 800, height = 600)
-      print(
-        ggplot(data_filtrée(), aes(x = type_energie_n1)) +
-          geom_bar(fill = "purple") +
-          labs(x = "Type d'énergie", y = "Nombre de logements")
-      )
-      dev.off()
-    }
-  )
-
-  output$export_nuage <- downloadHandler(
-    filename = function() {
-      paste0("nuage_surface_conso_", Sys.Date(), ".png")
-    },
-    content = function(file) {
-      png(file, width = 800, height = 600)
-      print(
-        ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
-          geom_point(alpha = 0.5, color = "darkblue") +
-          geom_smooth(method = "lm", se = FALSE, color = "red") +
-          labs(x = "Surface habitable (m²)", y = "Consommation (kWh)")
-      )
-      dev.off()
-    }
-  )
+  
 }
 
-shinyApp(ui = ui, server = server)
+
+
+shinyApp(ui, server)
