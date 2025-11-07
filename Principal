@@ -1,5 +1,3 @@
-#PENSER A METTRE LES DONNEES QUAND CSV ACCESSIBLE !!
-
 install.packages("shiny")
 install.packages("DT")
 install.packages("ggplot2")
