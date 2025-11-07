@@ -17,9 +17,7 @@ library(shinymanager)
 
 thematic::thematic_shiny()
 
-library(shinymanager)
-
-credentials <- data.frame(
+identifiants <- data.frame(
   user = c("admin",),
   password = c("admin"),
   stringsAsFactors = FALSE
@@ -39,7 +37,7 @@ data_all <- rbind(data_neuf, data_existant)
 # Logo Enedis
 logo_ui <- tags$div(
   style = "position: absolute; top: 10px; left: 10px; z-index: 1000;",
-  tags$img(src = "enedis_logo.png", height = "50px")
+  tags$img(src = "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/enedis_logo.png", height = "50px")
 )
 
 # Interface utilisateur
@@ -118,7 +116,7 @@ ui <- secure_app(fluidPage(
 )
 
 server <- function(input, output, session) {
-  res_auth <- secure_server(check_credentials = check_credentials(credentials))
+  res_auth <- secure_server(check_identifiants = check_identifiants(identifiants))
 
   observe({
     theme_choice <- if (input$theme_slider == 0) "darkly" else "flatly"
