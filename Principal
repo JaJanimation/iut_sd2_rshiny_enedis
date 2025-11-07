@@ -1,9 +1,14 @@
 # install.packages("shiny")
 # install.packages("DT")
 # install.packages("ggplot2")
-# install.packages("leaflet")
+# install.packages("units", type = "binary")
+# install.packages("sf", type = "binary")
+# install.packages("leaflet", type = "binary")
 # install.packages("bslib")
 # install.packages("thematic")
+# install.packages("units", type = "source")
+# install.packages("sf", type = "source")
+
 
 # install.packages("rsconnect")
 # install.packages("jsonlite")
@@ -12,13 +17,12 @@
 library(shiny)
 library(DT)
 library(ggplot2)
-#library(leaflet)
-
+library(leaflet)
 library(thematic)
-
 library(httr)
 library(jsonlite)
 library(rsconnect)
+library(sf)
 
 # rsconnect::setAccountInfo(name='jajalcoholic',
 #                           token='154ECBCFA2EAA985A5EA2CC92AD638A1',
@@ -79,6 +83,15 @@ data_all <- subset(data_all,
 
 #View(data_all)
 
+# Conversion des coordonnées Lambert 93 → WGS84
+data_all_sf <- st_as_sf(data_all, coords = c("coordonnee_cartographique_x_ban", "coordonnee_cartographique_y_ban"), crs = 2154)
+data_all_sf <- st_transform(data_all_sf, crs = 4326)
+
+# Extraire les coordonnées converties
+coords <- st_coordinates(data_all_sf)
+data_all$lon <- coords[, 1]
+data_all$lat <- coords[, 2]
+
 logo_ui <- tags$div(
   style = "position: absolute; top: 10px; right: 10px; z-index: 1000;",
   tags$img(src = "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/enedis_logo.png", height = "50px")
@@ -108,7 +121,6 @@ ui <- navbarPage(
              h3("Répartition des classes DPE"),
              plotOutput("hist_dpe"),
              downloadButton("export_hist_contexte", "Télécharger le graphique")
-             
            )
   ),
   
@@ -119,9 +131,8 @@ ui <- navbarPage(
                checkboxGroupInput("energie", "Type d'énergie :", choices = NULL),
                sliderInput("surface", "Surface habitable (m²) :", min = 0, max = 300, value = c(0, 300)),
                helpText("Ce filtre permet de sélectionner uniquement les logements 
-                        dont la surface habitable est comprise entre les deux valeurs 
-                        choisies. Cela permet d'exclure les logements trop petits ou trop grands pour une analyse plus ciblée."),
-               
+                 dont la surface habitable est comprise entre les deux valeurs 
+                 choisies. Cela permet d'exclure les logements trop petits ou trop grands pour une analyse plus ciblée."),
                actionButton("reset", "Réinitialiser les filtres")
              ),
              mainPanel(
@@ -138,10 +149,16 @@ ui <- navbarPage(
                downloadButton("export_nuage", "Télécharger le graphique")
              )
            )
-  )
+  ),
   
+  tabPanel(tagList(icon("map"), "Cartographie"),
+           fluidPage(
+             h2("Carte interactive des logements"),
+             p("Chaque point représente un logement, coloré selon sa classe DPE."),
+             leafletOutput("map_dpe", height = "600px")
+           )
+  )
 )
-
 
 
 server <- function(input, output, session) {
@@ -404,6 +421,45 @@ server <- function(input, output, session) {
       )
       dev.off()
     })
+    
+  output$map_dpe <- renderLeaflet({
+    df <- data_all
+    
+    # Centrage sur le Rhône (Lyon)
+    centre_lat <- 45.75
+    centre_lng <- 4.85
+    
+    # Couleurs pour les classes DPE
+    palette_dpe <- colorFactor(
+      palette = "Set1",
+      domain = df$etiquette_dpe
+    )
+    
+    leaflet(df) %>%
+      addTiles() %>%
+      setView(lng = centre_lng, lat = centre_lat, zoom = 9) %>%
+      addCircleMarkers(
+        lng = ~lon,
+        lat = ~lat,
+        color = ~palette_dpe(etiquette_dpe),
+        radius = 5,
+        stroke = FALSE,
+        fillOpacity = 0.7,
+        popup = ~paste0(
+          "<strong>Classe DPE :</strong> ", etiquette_dpe, "<br>",
+          "<strong>Surface :</strong> ", surface_habitable_logement, " m²<br>",
+          "<strong>Énergie :</strong> ", type_energie_n1
+        )
+      ) %>%
+      addLegend(
+        "bottomright",
+        pal = palette_dpe,
+        values = ~etiquette_dpe,
+        title = "Classe DPE",
+        opacity = 1
+      )
+  })
+  
   
 
   
