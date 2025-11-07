@@ -118,13 +118,13 @@ ui <- navbarPage(
                checkboxGroupInput("source_dpe", "Source DPE :", choices = c("Neuf", "Existant"), selected = c("Neuf", "Existant")),
                checkboxGroupInput("energie", "Type d'énergie :", choices = NULL),
                sliderInput("surface", "Surface habitable (m²) :", min = 0, max = 300, value = c(0, 300)),
+               helpText("Ce filtre permet de sélectionner uniquement les logements 
+                        dont la surface habitable est comprise entre les deux valeurs 
+                        choisies. Cela permet d'exclure les logements trop petits ou trop grands pour une analyse plus ciblée."),
+               
                actionButton("reset", "Réinitialiser les filtres")
              ),
              mainPanel(
-               h3("Histogramme des classes DPE"),
-               plotOutput("plot_histogramme"),
-               downloadButton("export_hist", "Télécharger le graphique"),
-               
                h3("Boîte à moustaches : consommation par m²"),
                plotOutput("plot_boite"),
                downloadButton("export_boite", "Télécharger le graphique"),
@@ -139,6 +139,7 @@ ui <- navbarPage(
              )
            )
   )
+  
 )
 
 
@@ -147,17 +148,25 @@ server <- function(input, output, session) {
   
   # Initialisation des filtres dynamiques
   observe({
-    updateCheckboxGroupInput(session, "energie", choices = unique(data_all$type_energie_n1))
+    updateCheckboxGroupInput(session, "energie", choices = unique(data_all$type_energie_n1), selected = unique(data_all$type_energie_n1))
+  })
+  
+  observeEvent(input$reset, {
+    updateCheckboxGroupInput(session, "source_dpe", selected = c("Neuf", "Existant"))
+    updateCheckboxGroupInput(session, "energie", selected = unique(data_all$type_energie_n1))
+    updateSliderInput(session, "surface", value = c(0, 300))
   })
   
   # Filtrage des données
   data_filtrée <- reactive({
+    req(input$source_dpe, input$energie)
     subset(data_all,
            source %in% input$source_dpe &
              type_energie_n1 %in% input$energie &
              surface_habitable_logement >= input$surface[1] &
              surface_habitable_logement <= input$surface[2])
   })
+
   data_contexte <- reactive({
   df <- data_all
   
@@ -332,30 +341,69 @@ server <- function(input, output, session) {
     })
   
   # Onglet Analyse
-  output$plot_histogramme <- renderPlot({
-    ggplot(data_filtrée(), aes(x = etiquette_dpe)) +
-      geom_bar(fill = "darkorange") +
-      theme_minimal()
-  })
   
   output$plot_boite <- renderPlot({
     ggplot(data_filtrée(), aes(x = etiquette_dpe, y = conso_5_usages_par_m2_ef)) +
       geom_boxplot(fill = "lightgreen") +
-      theme_minimal()
+      theme_minimal() +
+      labs(x = "Classe DPE", y = "Consommation par m² (kWh/m²)", title = "Distribution de la consommation par m² selon la classe DPE")
   })
+  
   
   output$plot_diagramme <- renderPlot({
     ggplot(data_filtrée(), aes(x = type_energie_n1)) +
       geom_bar(fill = "purple") +
       theme_minimal() +
-      coord_flip()
+      coord_flip() +
+      labs(x = "Type d'énergie", y = "Nombre de logements", title = "Répartition des types d'énergie")
   })
+  
   
   output$plot_nuage <- renderPlot({
     ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
       geom_point(alpha = 0.5, color = "darkblue") +
-      theme_minimal()
+      theme_minimal() +
+      labs(x = "Surface habitable (m²)", y = "Consommation totale (kWh)", title = "Surface vs Consommation énergétique")
   })
+  
+  output$export_boite <- downloadHandler(
+    filename = function() {"boite_conso_par_m2.png"},
+    content = function(file) {
+      png(file)
+      print(
+        ggplot(data_filtrée(), aes(x = etiquette_dpe, y = conso_5_usages_par_m2_ef)) +
+          geom_boxplot(fill = "lightgreen") +
+          theme_minimal() +
+          labs(x = "Classe DPE", y = "Consommation par m² (kWh/m²)", title = "Distribution de la consommation par m² selon la classe DPE")
+      )
+      dev.off()
+    })
+  
+  output$export_diagramme <- downloadHandler(
+    filename = function() {"diagramme_types_energie.png"},
+    content = function(file) {
+      png(file)
+      print(
+        ggplot(data_filtrée(), aes(x = type_energie_n1)) +
+          geom_bar(fill = "purple") +
+          theme_minimal() +
+          coord_flip() +
+          labs(x = "Type d'énergie", y = "Nombre de logements", title = "Répartition des types d'énergie")
+      )
+      dev.off()
+    })
+  output$export_nuage <- downloadHandler(
+    filename = function() {"nuage_surface_conso.png"},
+    content = function(file) {
+      png(file)
+      print(
+        ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
+          geom_point(alpha = 0.5, color = "darkblue") +
+          theme_minimal() +
+          labs(x = "Surface habitable (m²)", y = "Consommation totale (kWh)", title = "Surface vs Consommation énergétique")
+      )
+      dev.off()
+    })
   
 
   
