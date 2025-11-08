@@ -1,0 +1,51 @@
+<!-- Informations générales sur le fichier -->
+
+---
+title: "Documentation technique"
+output: html_document
+---
+
+<!-- Titre de la documentation -->
+# <span style="color:red; font-weight:bold;">Présentation des technicités de l’application</span>
+
+<!-- Informations concernant l'architecture de app.R -->
+### **Architecture**
+
+**Données** : Les données utilisées correspondent aux DPE concernant les logements existants en 2021 et ceux neufs en 2021. Elles sont ensuite combinées en un seul data frame pour une utilisation ultérieure dans l’application (dans l’ordre: data_existant, data_neuf, data_all).
+
+**UI (L’interface Utilisateur)** : Elle définit ce que l’utilisateur voit : boutons, menus, graphiques, tableaux. Dans cette application, il y a 3 onglets (respectivement **Contexte**, **Analyse et Visualisation**, **Cartographie**), où différents widgets peuvent être enclenchés par l’utilisateur. Ces widgets permettent différents filtres sur les données, de les trier ou encore de télécharger les résultats.
+
+**Server** : Il contient la logique de l’application, c’est-à-dire le traitement des données, les KPI calculés, les graphiques ou encore la cartographie.
+
+**Application** : La fonction **shinyApp(ui, server)** qui relie les deux parties.
+
+---
+
+<!-- Informations sur l'installation de l'application-->
+### **Comment installer l’application sur son poste**
+
+**En local** :  
+  - Ouvrir un compilateur R (par exemple RStudio)  
+  - S’assurer que **R 4.3.2** est installé et sélectionné  
+  - Copier/Importer le code ‘Principal’ de l’application sur un script Shiny Webapp  
+  - Exécuter le code (il est possible que R indique que certains packages soient en 4.3.3 mais ça ne pose pas de problème pour leur utilisation)  
+  - L’application s’ouvrira automatiquement  
+
+**Avec un lien** :  
+  - Prendre la souris avec sa main dominante  
+  - Faire glisser délicatement le curseur jusqu’au lien  
+  - Le lien changera de couleur pour montrer qu’il est cliquable  
+  - Cliquer une fois  
+
+---
+
+<!-- Informations sur les packages -->
+### **Packages**
+
+**shiny** : package pour créer des applications web interactives.  
+**DT** : package permettant d’utiliser la librairie JavaScript DataTables. Son objectif est d’afficher des tableaux interactifs (tri, recherche, pagination, export) dans une application Shiny ou un document R Markdown.  
+- **ggplot2** : package de visualisation basé sur la *Grammar of Graphics*. Il permet de créer des graphiques complexes et personnalisés à partir de tableaux de données.  
+**sf** : package pour manipuler des données géospatiales en R. Il est utilisé ici pour permettre d’exploiter le package **leaflet** (s’en est une dépendance).  
+**leaflet** : package permettant de créer des cartes interactives.  
+**jsonlite** : package pour lire et écrire des fichiers JSON. Il facilite l’échange de données entre R et les API, avec une conversion en data frame utilisable sur un script R.  
+**httr** : package pour interagir avec des API web via HTTP. Il permet d’envoyer des requêtes GET/POST.  
