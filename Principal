@@ -315,7 +315,7 @@ server <- function(input, output, session) {
                     "Tous" = "Répartition des classes DPE (Tous les logements)")
     
     ggplot(df, aes(x = etiquette_dpe)) +
-      geom_bar(fill = "steelblue") +
+      geom_bar(fill = "#1423dc") +
       theme_minimal() +
       labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
   })
@@ -347,7 +347,7 @@ server <- function(input, output, session) {
       png(file)
       print(
         ggplot(df, aes(x = etiquette_dpe)) +
-          geom_bar(fill = "steelblue") +
+          geom_bar(fill = "#1423dc") +
           theme_minimal() +
           labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
       )
@@ -378,7 +378,7 @@ server <- function(input, output, session) {
   # Activation de la boîte à moustache
   output$plot_boite <- renderPlot({
     ggplot(data_filtrée(), aes(x = etiquette_dpe, y = conso_5_usages_par_m2_ef)) +
-      geom_boxplot(fill = "lightgreen") +
+      geom_boxplot(fill = "#96cd32") +
       theme_minimal() +
       labs(x = "Classe DPE", y = "Consommation par m² (kWh/m²)", title = "Distribution de la consommation par m² selon la classe DPE")
   })
@@ -386,7 +386,7 @@ server <- function(input, output, session) {
   # Activation du diagramme
   output$plot_diagramme <- renderPlot({
     ggplot(data_filtrée(), aes(x = type_energie_n1)) +
-      geom_bar(fill = "purple") +
+      geom_bar(fill = "#1423dc") +
       theme_minimal() +
       coord_flip() +
       labs(x = "Type d'énergie", y = "Nombre de logements", title = "Répartition des types d'énergie")
@@ -395,7 +395,7 @@ server <- function(input, output, session) {
   # Activation du nuage de point
   output$plot_nuage <- renderPlot({
     ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
-      geom_point(alpha = 0.5, color = "darkblue") +
+      geom_point(alpha = 0.5, color = "#96cd32") +
       theme_minimal() +
       labs(x = "Surface habitable (m²)", y = "Consommation totale (kWh)", title = "Surface vs Consommation énergétique")
   })
@@ -407,7 +407,7 @@ server <- function(input, output, session) {
       png(file)
       print(
         ggplot(data_filtrée(), aes(x = etiquette_dpe, y = conso_5_usages_par_m2_ef)) +
-          geom_boxplot(fill = "lightgreen") +
+          geom_boxplot(fill = "#96cd32") +
           theme_minimal() +
           labs(x = "Classe DPE", y = "Consommation par m² (kWh/m²)", title = "Distribution de la consommation par m² selon la classe DPE")
       )
@@ -421,7 +421,7 @@ server <- function(input, output, session) {
       png(file)
       print(
         ggplot(data_filtrée(), aes(x = type_energie_n1)) +
-          geom_bar(fill = "purple") +
+          geom_bar(fill = "#1423dc") +
           theme_minimal() +
           coord_flip() +
           labs(x = "Type d'énergie", y = "Nombre de logements", title = "Répartition des types d'énergie")
@@ -436,7 +436,7 @@ server <- function(input, output, session) {
       png(file)
       print(
         ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
-          geom_point(alpha = 0.5, color = "darkblue") +
+          geom_point(alpha = 0.5, color = "#96cd32") +
           theme_minimal() +
           labs(x = "Surface habitable (m²)", y = "Consommation totale (kWh)", title = "Surface vs Consommation énergétique")
       )
