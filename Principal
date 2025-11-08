@@ -1,3 +1,4 @@
+# Installation des packages
 # install.packages("shiny")
 # install.packages("DT")
 # install.packages("ggplot2")
@@ -8,12 +9,11 @@
 # install.packages("thematic")
 # install.packages("units", type = "source")
 # install.packages("sf", type = "source")
-
-
 # install.packages("rsconnect")
 # install.packages("jsonlite")
 # install.packages("httr")
 
+# Accès aux librairies
 library(shiny)
 library(DT)
 library(ggplot2)
@@ -23,11 +23,6 @@ library(httr)
 library(jsonlite)
 library(rsconnect)
 library(sf)
-
-# rsconnect::setAccountInfo(name='jajalcoholic',
-#                           token='154ECBCFA2EAA985A5EA2CC92AD638A1',
-#                           secret='vIBRjZZy1/M13b1guisz0kqCrSEkNDbCa24SnV0f')
-# rsconnect::deployApp()
 
 # Chargement des données
 # Existants
@@ -72,7 +67,7 @@ data_neuf <- df2[, c(
 
 #View(data_neuf)
 
-# Combinaison des df
+# Combinaison des data frames
 data_neuf$source <- "Neuf"
 data_existant$source <- "Existant"
 data_all <- rbind(data_neuf, data_existant)
@@ -80,35 +75,41 @@ data_all <- subset(data_all,
                    !is.na(coordonnee_cartographique_x_ban) &
                      !is.na(coordonnee_cartographique_y_ban))
 
-
 #View(data_all)
 
-# Conversion des coordonnées Lambert 93 → WGS84
+# Conversion des coordonnées Lambert 93 en WGS84 pour les markers sur la carte
 data_all_sf <- st_as_sf(data_all, coords = c("coordonnee_cartographique_x_ban", "coordonnee_cartographique_y_ban"), crs = 2154)
 data_all_sf <- st_transform(data_all_sf, crs = 4326)
 
-# Extraire les coordonnées converties
+# Extraction des coordonnées converties
 coords <- st_coordinates(data_all_sf)
 data_all$lon <- coords[, 1]
 data_all$lat <- coords[, 2]
 
+# Initialisation du logo pour la mise en page de l'application
 logo_ui <- tags$div(
   style = "position: absolute; top: 10px; right: 10px; z-index: 1000;",
   tags$img(src = "https://raw.githubusercontent.com/JaJanimation/iut_sd2_rshiny_enedis/main/enedis_logo.png", height = "50px")
 )
 
+# Interface
 ui <- navbarPage(
   title = div("Consommation énergétique et DPE", logo_ui),
   
+  # Onglet 'Contexte' contenant les informations et statistiques sur les données
   tabPanel(tagList(icon("info-circle"), "Contexte"),
            fluidPage(
              h2("Contexte de l'application"),
              p("Enedis souhaite évaluer l'impact de la classe DPE sur la consommation des logements."),
              h3("Données disponibles"),
+             # Création de filtre (ici sous forme de menu déroulant)
+             # Filtre sur le type de logement (Existant ou Neuf)
              selectInput("filtre_source", "Filtrer par source :", choices = c("Tous", "Neuf", "Existant")),
              selectInput("filtre_energie", "Filtrer par énergie :", choices = c("Tous", sort(unique(data_all$type_energie_n1)))),
              selectInput("filtre_dpe", "Filtrer par classe DPE :", choices = c("Tous", sort(unique(data_all$etiquette_dpe)))),
+             # Mise en place des emplacements où les tableaux de statistiques seront affichées
              DT::dataTableOutput("table_apercu"),
+             # Bouton de téléchargement des tableaux de données
              downloadButton("export_csv", "Télécharger les données filtrées"),
              h3("Statistiques"),
              verbatimTextOutput("stats_resume"),
@@ -120,37 +121,56 @@ ui <- navbarPage(
              verbatimTextOutput("kpi_dpe"),
              h3("Répartition des classes DPE"),
              plotOutput("hist_dpe"),
+             # Bouton de téléchargement de l'histogramme
              downloadButton("export_hist_contexte", "Télécharger le graphique")
            )
   ),
   
+  # Onglet 'Analyse et Visualisation' contenant la majorité des graphiques 
+  #(les graphiques sont ajustés selon les filtres sélectionnés)
   tabPanel(tagList(icon("chart-bar"), "Analyse et Visualisation"),
            sidebarLayout(
+             # Panneau avec les filtres
              sidebarPanel(
+               # Création de filtres (ici sous forme de case à cocher)
+               # Filtre sur le type de logement (Existant ou Neuf)
                checkboxGroupInput("source_dpe", "Source DPE :", choices = c("Neuf", "Existant"), selected = c("Neuf", "Existant")),
+               # Filtre sur le type d'énergie principalement utilisé par les logements
                checkboxGroupInput("energie", "Type d'énergie :", choices = NULL),
+               # Slider permettant de choisir la surface habitable minimum et maximum 
+               # Permet d'éliminer les extremums
                sliderInput("surface", "Surface habitable (m²) :", min = 0, max = 300, value = c(0, 300)),
+               # Texte explicatif sur l'utilité du slider pour l'utilisateur
                helpText("Ce filtre permet de sélectionner uniquement les logements 
                  dont la surface habitable est comprise entre les deux valeurs 
                  choisies. Cela permet d'exclure les logements trop petits ou trop grands pour une analyse plus ciblée."),
+               # Bouton permettant de réinitialiser les filtres
                actionButton("reset", "Réinitialiser les filtres")
              ),
+             # Panneau avec les graphiques
              mainPanel(
+               # Création de la boîte à moustache
                h3("Boîte à moustaches : consommation par m²"),
                plotOutput("plot_boite"),
+               # Bouton de téléchargement du graphique
                downloadButton("export_boite", "Télécharger le graphique"),
                
+               # Création du diagramme en bâton
                h3("Diagramme des types d'énergie"),
                plotOutput("plot_diagramme"),
+               # Bouton de téléchargement du graphique
                downloadButton("export_diagramme", "Télécharger le graphique"),
                
+               # Création du nuage de point
                h3("Nuage de points : surface vs consommation"),
                plotOutput("plot_nuage"),
+               # Bouton de téléchargement du graphique
                downloadButton("export_nuage", "Télécharger le graphique")
              )
            )
   ),
   
+  # Onglet "Cartographie" (fait avec leaflet)
   tabPanel(tagList(icon("map"), "Cartographie"),
            fluidPage(
              h2("Carte interactive des logements"),
@@ -160,52 +180,18 @@ ui <- navbarPage(
   )
 )
 
-
+# Exécution de l'application
 server <- function(input, output, session) {
   
-  # Initialisation des filtres dynamiques
+  # Onglet 'Contexte'
+  # Activation des filtres dynamiques sur le type d'énergie
   observe({
     updateCheckboxGroupInput(session, "energie", choices = unique(data_all$type_energie_n1), selected = unique(data_all$type_energie_n1))
   })
   
-  observeEvent(input$reset, {
-    updateCheckboxGroupInput(session, "source_dpe", selected = c("Neuf", "Existant"))
-    updateCheckboxGroupInput(session, "energie", selected = unique(data_all$type_energie_n1))
-    updateSliderInput(session, "surface", value = c(0, 300))
-  })
-  
-  # Filtrage des données
-  data_filtrée <- reactive({
-    req(input$source_dpe, input$energie)
-    subset(data_all,
-           source %in% input$source_dpe &
-             type_energie_n1 %in% input$energie &
-             surface_habitable_logement >= input$surface[1] &
-             surface_habitable_logement <= input$surface[2])
-  })
-
   data_contexte <- reactive({
-  df <- data_all
-  
-  if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
-    df <- df[df$source == input$filtre_source, ]
-  }
-  if (!is.null(input$filtre_energie) && input$filtre_energie != "Tous") {
-    df <- df[df$type_energie_n1 == input$filtre_energie, ]
-  }
-  if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
-    df <- df[df$etiquette_dpe == input$filtre_dpe, ]
-  }
-  
-  df
-  })
-  
-  
-  # Onglet Contexte
-  output$table_apercu <- DT::renderDataTable({
     df <- data_all
-    
-    # Appliquer les filtres
+
     if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
       df <- df[df$source == input$filtre_source, ]
     }
@@ -215,8 +201,17 @@ server <- function(input, output, session) {
     if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
       df <- df[df$etiquette_dpe == input$filtre_dpe, ]
     }
+
+    df
+  })
+  
+  # Tableau de donnée 
+  output$table_apercu <- DT::renderDataTable({
+  #Affiche toutes les données de base
+    df <- data_contexte()
     
-    # Réorganiser les colonnes si besoin
+    # Renommage des colonnes du tableau pour qu'elles soient plus explicitent
+    # lors de l'affichage
     df <- df[, c(
       "type_energie_n1",
       "surface_habitable_logement",
@@ -229,7 +224,6 @@ server <- function(input, output, session) {
       "source"
     )]
     
-    # Renommer les colonnes pour l'affichage
     colnames(df) <- c(
       "Type d'énergie",
       "Surface habitable (m²)",
@@ -245,7 +239,7 @@ server <- function(input, output, session) {
     datatable(df)
   })
   
-  
+  # Activation du bouton de téléchargement des données
   output$export_csv <- downloadHandler(
     filename = function() {"donnees_filtrees.csv"},
     content = function(file) {
@@ -253,9 +247,14 @@ server <- function(input, output, session) {
     }
   )
   
+  # Activation de l'affichage des statistiques 
+  # (concerne la consommation énergétique totale pour les 5 usages par logements)
+  # 5 usages : Cuisson, Chauffage, Éclairage, Électricité spécifique (appareils),Eau chaude
   output$stats_resume <- renderPrint({
     x <- data_contexte()$conso_5_usages_ef
     stats <- summary(x)
+    # cat --> concaténation, permet de séparer les données du summary pour les mettres en forme de façon plus propre
+    # \n --> permet un retour à la ligne
     cat("Statistiques sur la consommation énergétique totale (conso_5_usages_ef) :\n\n")
     cat("Minimum :", stats["Min."], "kWh\n")
     cat("1er quartile (25%) :", stats["1st Qu."], "kWh\n")
@@ -265,22 +264,18 @@ server <- function(input, output, session) {
     cat("Maximum :", stats["Max."], "kWh\n")
   })
   
-
-  
+  # Activation des KPI sur les données
   output$kpi_logements <- renderText({
     paste("Nombre de logements :", nrow(data_contexte()))
   })
-  
   
   output$kpi_conso_totale <- renderText({
     paste("Consommation totale (kWh) :", round(sum(data_contexte()$conso_5_usages_ef, na.rm = TRUE)))
   })
   
-  
   output$kpi_conso_m2 <- renderText({
     paste("Consommation moyenne par m² :", round(mean(data_contexte()$conso_5_usages_par_m2_ef, na.rm = TRUE), 2))
   })
-  
   
   output$kpi_source <- renderPrint({
     tab <- table(data_contexte()$source)
@@ -290,8 +285,6 @@ server <- function(input, output, session) {
     }
   })
   
-  
-  
   output$kpi_dpe <- renderPrint({
     tab <- table(data_contexte()$etiquette_dpe)
     cat("Répartition des logements par classe DPE :\n\n")
@@ -300,38 +293,11 @@ server <- function(input, output, session) {
     }
   })
   
-  
-  
+  # Activation de l'histogramme
   output$hist_dpe <- renderPlot({
-  df <- data_all
-  
-  if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
-    df <- df[df$source == input$filtre_source, ]
-  }
-  if (!is.null(input$filtre_energie) && input$filtre_energie != "Tous") {
-    df <- df[df$type_energie_n1 == input$filtre_energie, ]
-  }
-  if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
-    df <- df[df$etiquette_dpe == input$filtre_dpe, ]
-  }
-  
-  titre <- switch(input$filtre_source,
-                  "Neuf" = "Répartition des classes DPE (Logements neufs)",
-                  "Existant" = "Répartition des classes DPE (Logements existants)",
-                  "Tous" = "Répartition des classes DPE (Tous les logements)")
-  
-  ggplot(df, aes(x = etiquette_dpe)) +
-    geom_bar(fill = "steelblue") +
-    theme_minimal() +
-    labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
-  })
-  
-  
-  output$export_hist_contexte <- downloadHandler(
-  filename = function() {"repartition_dpe.png"},
-  content = function(file) {
     df <- data_all
     
+    # Applique les filtres sur l'e graphique'histogramme (le graphique s'adapte dynamiquement)
     if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
       df <- df[df$source == input$filtre_source, ]
     }
@@ -342,23 +308,74 @@ server <- function(input, output, session) {
       df <- df[df$etiquette_dpe == input$filtre_dpe, ]
     }
     
+    # Le titre s'adapte également selon la source sélectionnée
     titre <- switch(input$filtre_source,
-                    "Neuf" = "Répartition des classes DPE (Neuf)",
-                    "Existant" = "Répartition des classes DPE (Existant)",
-                    "Tous" = "Répartition des classes DPE (Tous logements)")
+                    "Neuf" = "Répartition des classes DPE (Logements neufs)",
+                    "Existant" = "Répartition des classes DPE (Logements existants)",
+                    "Tous" = "Répartition des classes DPE (Tous les logements)")
     
-    png(file)
-    print(
-      ggplot(df, aes(x = etiquette_dpe)) +
-        geom_bar(fill = "steelblue") +
-        theme_minimal() +
-        labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
-    )
+    ggplot(df, aes(x = etiquette_dpe)) +
+      geom_bar(fill = "steelblue") +
+      theme_minimal() +
+      labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
+  })
+  
+  # Activation du bouton de téléchargement de l'histogramme
+  output$export_hist_contexte <- downloadHandler(
+    filename = function() {"repartition_dpe.png"},
+    content = function(file) {
+      
+      # Permet d'adapter le graphique selon les filtres lors du téléchargement en png
+      # Sans ça, il veut s'enregistrer en HTML
+      df <- data_all
+
+      if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
+        df <- df[df$source == input$filtre_source, ]
+      }
+      if (!is.null(input$filtre_energie) && input$filtre_energie != "Tous") {
+        df <- df[df$type_energie_n1 == input$filtre_energie, ]
+      }
+      if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
+        df <- df[df$etiquette_dpe == input$filtre_dpe, ]
+      }
+
+      titre <- switch(input$filtre_source,
+                      "Neuf" = "Répartition des classes DPE (Logements neufs)",
+                      "Existant" = "Répartition des classes DPE (Logements existants)",
+                      "Tous" = "Répartition des classes DPE (Tous les logements)")
+      
+      png(file)
+      print(
+        ggplot(df, aes(x = etiquette_dpe)) +
+          geom_bar(fill = "steelblue") +
+          theme_minimal() +
+          labs(x = "Classe DPE", y = "Nombre de logements", title = titre)
+      )
+      # Permet de finaliser le fichier
       dev.off()
     })
   
-  # Onglet Analyse
+  # Onglet 'Analyse et Visualisation'
   
+  # Activation du bouton de réinitialisation des filtres ('Analyse et Visualisation')
+  # Observe --> Déclenche une action si un événement se produit
+  observeEvent(input$reset, {
+    updateCheckboxGroupInput(session, "source_dpe", selected = c("Neuf", "Existant"))
+    updateCheckboxGroupInput(session, "energie", selected = unique(data_all$type_energie_n1))
+    updateSliderInput(session, "surface", value = c(0, 300))
+  })
+  
+  # Activation du filtrage dynamique sur les graphiques ('Analyse et Visualisation')
+  data_filtrée <- reactive({
+    req(input$source_dpe, input$energie)
+    subset(data_all,
+           source %in% input$source_dpe &
+             type_energie_n1 %in% input$energie &
+             surface_habitable_logement >= input$surface[1] &
+             surface_habitable_logement <= input$surface[2])
+  })
+  
+  # Activation de la boîte à moustache
   output$plot_boite <- renderPlot({
     ggplot(data_filtrée(), aes(x = etiquette_dpe, y = conso_5_usages_par_m2_ef)) +
       geom_boxplot(fill = "lightgreen") +
@@ -366,7 +383,7 @@ server <- function(input, output, session) {
       labs(x = "Classe DPE", y = "Consommation par m² (kWh/m²)", title = "Distribution de la consommation par m² selon la classe DPE")
   })
   
-  
+  # Activation du diagramme
   output$plot_diagramme <- renderPlot({
     ggplot(data_filtrée(), aes(x = type_energie_n1)) +
       geom_bar(fill = "purple") +
@@ -375,7 +392,7 @@ server <- function(input, output, session) {
       labs(x = "Type d'énergie", y = "Nombre de logements", title = "Répartition des types d'énergie")
   })
   
-  
+  # Activation du nuage de point
   output$plot_nuage <- renderPlot({
     ggplot(data_filtrée(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
       geom_point(alpha = 0.5, color = "darkblue") +
@@ -383,6 +400,7 @@ server <- function(input, output, session) {
       labs(x = "Surface habitable (m²)", y = "Consommation totale (kWh)", title = "Surface vs Consommation énergétique")
   })
   
+  # Activation du bouton de téléchargement de la boîte à moustache
   output$export_boite <- downloadHandler(
     filename = function() {"boite_conso_par_m2.png"},
     content = function(file) {
@@ -396,6 +414,7 @@ server <- function(input, output, session) {
       dev.off()
     })
   
+  # Activation du bouton de téléchargement du diagramme
   output$export_diagramme <- downloadHandler(
     filename = function() {"diagramme_types_energie.png"},
     content = function(file) {
@@ -409,6 +428,8 @@ server <- function(input, output, session) {
       )
       dev.off()
     })
+  
+  # Activation du bouton de téléchargement du nuage de point
   output$export_nuage <- downloadHandler(
     filename = function() {"nuage_surface_conso.png"},
     content = function(file) {
@@ -421,7 +442,10 @@ server <- function(input, output, session) {
       )
       dev.off()
     })
-    
+  
+  # Onglet 'Cartographie'
+  
+  # Activation de la carte
   output$map_dpe <- renderLeaflet({
     df <- data_all
     
@@ -435,6 +459,7 @@ server <- function(input, output, session) {
       domain = df$etiquette_dpe
     )
     
+    # Création des markers
     leaflet(df) %>%
       addTiles() %>%
       setView(lng = centre_lng, lat = centre_lat, zoom = 9) %>%
@@ -451,6 +476,8 @@ server <- function(input, output, session) {
           "<strong>Énergie :</strong> ", type_energie_n1
         )
       ) %>%
+      
+      # Légende de la carte
       addLegend(
         "bottomright",
         pal = palette_dpe,
@@ -460,11 +487,7 @@ server <- function(input, output, session) {
       )
   })
   
-  
-
-  
 }
 
-
-
+# Lancement de l'application
 shinyApp(ui, server)
