@@ -14,7 +14,7 @@ Le logo utilisé sur notre application. Il est appelé par son lien GitHub lors 
 Le Rmarkdown présentant le résultat de notre application. Il contient des KPI et des graphiques concernant les données,
 ainsi que les interprétations que nous avons faites.
 
-## Fichiers documentations
+## Dossier 'Documentations'
 Ces fichiers en Rmarkdown renseignent l'utilisateur sur les aspects spécifiques à l'applciation.
 La documentation technique présente l'architecture de l'application, comment l'installer sur son poste ainsi les packages utilisés.
 La documentation fonctionnelle présente l'intérêt des différents onglets de l'application ainsi que ses fonctionnalités majeures.
