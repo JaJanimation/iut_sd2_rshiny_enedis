@@ -1,2 +1,10 @@
-# iut_sd2_rshiny_enedis
-Notre projet R concernant l'application sur les DPE
+# Application Rshiny sur l'impact de la classe DPE concernant la consommation énergétique des logements
+
+Ce répertoire contient les scripts et autres fichiers utilisés par notre application RShiny
+
+# Description :
+
+## Utilisation :
+
+## Prérequis :
+L'
