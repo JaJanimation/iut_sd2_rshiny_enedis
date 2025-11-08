@@ -2,14 +2,8 @@
 # install.packages("shiny")
 # install.packages("DT")
 # install.packages("ggplot2")
-# install.packages("units", type = "binary")
 # install.packages("sf", type = "binary")
 # install.packages("leaflet", type = "binary")
-# install.packages("bslib")
-# install.packages("thematic")
-# install.packages("units", type = "source")
-# install.packages("sf", type = "source")
-# install.packages("rsconnect")
 # install.packages("jsonlite")
 # install.packages("httr")
 
@@ -18,10 +12,8 @@ library(shiny)
 library(DT)
 library(ggplot2)
 library(leaflet)
-library(thematic)
 library(httr)
 library(jsonlite)
-library(rsconnect)
 library(sf)
 
 # Chargement des données
@@ -191,7 +183,7 @@ server <- function(input, output, session) {
   
   data_contexte <- reactive({
     df <- data_all
-
+    
     if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
       df <- df[df$source == input$filtre_source, ]
     }
@@ -201,13 +193,13 @@ server <- function(input, output, session) {
     if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
       df <- df[df$etiquette_dpe == input$filtre_dpe, ]
     }
-
+    
     df
   })
   
   # Tableau de donnée 
   output$table_apercu <- DT::renderDataTable({
-  #Affiche toutes les données de base
+    #Affiche toutes les données de base
     df <- data_contexte()
     
     # Renommage des colonnes du tableau pour qu'elles soient plus explicitent
@@ -328,7 +320,7 @@ server <- function(input, output, session) {
       # Permet d'adapter le graphique selon les filtres lors du téléchargement en png
       # Sans ça, il veut s'enregistrer en HTML
       df <- data_all
-
+      
       if (!is.null(input$filtre_source) && input$filtre_source != "Tous") {
         df <- df[df$source == input$filtre_source, ]
       }
@@ -338,7 +330,7 @@ server <- function(input, output, session) {
       if (!is.null(input$filtre_dpe) && input$filtre_dpe != "Tous") {
         df <- df[df$etiquette_dpe == input$filtre_dpe, ]
       }
-
+      
       titre <- switch(input$filtre_source,
                       "Neuf" = "Répartition des classes DPE (Logements neufs)",
                       "Existant" = "Répartition des classes DPE (Logements existants)",
