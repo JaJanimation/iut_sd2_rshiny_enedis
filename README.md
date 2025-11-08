@@ -7,6 +7,17 @@ Cette application est déployée sur shinyappsio : https://jajalcoholic.shinyapp
 
 Le script 'Principal' doit être exécuté sous R 4.3.2 pour que cela soit compatibles avec shinyapps.io
 
-
 ## Enedis Logo
 Le logo utilisé sur notre application. Il est appelé par son lien GitHub lors du lancement du lien.
+
+## Rapport d'étude
+Le Rmarkdown présentant le résultat de notre application. Il contient des KPI et des graphiques concernant les données,
+ainsi que les interprétations que nous avons faites.
+
+## Fichier documentation
+Le fichier contient la documentation technique et la documentation fonctionnelle, toutes deux en Rmarkdown.
+La documentation technique présente l'architecture de l'application, comment l'installer sur son poste ainsi les packages utilisés.
+La documentation fonctionnelle présente l'intêret des différents onglets de l'application ainsi que ses fonctionnalités majeures.
+
+## Vidéo
+La vidéo montre comment installer l'application, ainsi qu'un texte concret de ses fonctionnalités.
