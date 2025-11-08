@@ -1,0 +1,32 @@
+<!-- Informations générales sur le fichier -->
+
+---
+title: "Documentation fonctionnelle"
+output: html_document
+---
+
+<!-- Titre de la documentation -->
+# <span style="color:red"> **Présentation des fonctionnalités l’application**</span>
+
+L’application nous permet de visualiser les informations de 2000 logements rhodaniens. Elle se présente sous la forme de trois onglets différents, mettant en avant différents indicateurs.
+
+---
+
+<!-- Informations concernant le premier onglet de l'application -->
+### **Onglet 1 :**
+
+Le premier onglet est intitulé “Contexte”. Y figure notamment le type d’énergie, la surface habitable en m², la consommation totale et par m² du logement, etc. Ces informations sont initialement mises sous forme de tableaux dans lequel nous pouvons filtrer par source (neufs ou existants) par type d’énergie utilisée et par classe DPE. Il est également possible de faire une recherche dans le tableau ou encore d’afficher un nombre précis de données, ainsi que différentes pages de données. Un bouton nous permet de télécharger en fichier csv les données filtrées. Plus bas se trouve une partie statistique qui montre des informations de base sur la consommation énergétique totale des logements, comme le minimum des consommations ou leur médiane. On y trouve également des indicateurs clés sur les logements de manière générale, tels que leur nombre, la répartition des logements par source et par DPE, leur consommation totale et la consommation moyenne par m². De plus, un graphique en bâtons met en image la répartition des logements par classe DPE. Comme précédemment, un bouton y figure nous permettant de télécharger le graphique, cette fois en fichier png au lieu de fichier csv. Ces parties sont tributaires des filtres sélectionnés plus haut, et les informations qu’elles indiquent se modifient en fonction.
+
+---
+
+<!-- Informations concernant le deuxième onglet de l'application -->
+### **Onglet 2 :**
+
+Le deuxième est nommé “Analyse et Visualisation”. On est tout d’abord présenté par un graphique à boite à moustache sur la consommation d’électricité par m² selon la classe DPE, et un deuxième le suit, cette fois-ci un diagramme en bâton sur la répartition des types d’énergie utilisés par les différents logements de l’échantillon. Enfin se trouve un nuage de points montrant le lien entre surface habitable et consommation totale. Tous ces graphiques peuvent être téléchargés en format png via un bouton individuel placé sous chacun d’entre eux. De plus, ces graphiques peuvent être influencés par le panneau des filtres plus haut. Là, on peut choisir de mirer les résultats selon la source (neuf ou existant), selon le type d’énergie ou selon la surface habitable (via un curseur allant jusqu’au m² près). Cela permet de voir des résultats plus précis sur un type de logement particulier.
+
+---
+
+<!-- Informations concernant le troisième onglet de l'application -->
+### **Onglet 3 :**
+
+Le troisième et dernier onglet est intitulé “Cartographie”. Il permet de visualiser l’emplacement des différents logements étudiés, représentés chacun par un point de couleur différente en fonction du DPE. Il est également possible de zoomer sur la carte pour voir davantage de logements ou se concentrer sur une zone/un logement en particulier.
