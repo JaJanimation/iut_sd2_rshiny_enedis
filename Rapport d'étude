@@ -1,0 +1,212 @@
+
+---
+title: "Rapport d'Étude : Influence du DPE sur la Consommation Énergétique dans le Rhône"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: cosmo
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 6)
+library(httr)
+library(jsonlite)
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(tibble)
+```
+
+## 🔧 Filtres
+
+```{r}
+textInput("code_insee", "Code INSEE du département", value = "69")
+selectInput("source_dpe", "Type de logement", choices = c("Tous", "Neuf", "Existant"), selected = "Tous")
+```
+
+
+```{r}
+data_all <- reactive({
+  load_ademe_data <- function(dataset_id, code_insee, source_label) {
+    url <- paste0("https://data.ademe.fr/data-fair/api/v1/datasets/", dataset_id,
+                  "/lines?page=1&size=1000&q=code_insee%3A", code_insee)
+    res <- GET(url)
+    if (http_error(res)) return(NULL)
+    df <- fromJSON(content(res, "text"), flatten = TRUE)$results
+    if (is.null(df) || nrow(df) == 0) return(NULL)
+    cols <- c("type_energie_n1", "surface_habitable_logement", "typologie_logement",
+              "etiquette_dpe", "conso_5_usages_ef", "conso_5_usages_par_m2_ef")
+    df <- df[, intersect(cols, names(df))]
+    df$source <- source_label
+    df$conso_5_usages_ef <- as.numeric(df$conso_5_usages_ef)
+    df$conso_5_usages_par_m2_ef <- as.numeric(df$conso_5_usages_par_m2_ef)
+    df$surface_habitable_logement <- as.numeric(df$surface_habitable_logement)
+    return(df)
+  }
+
+  df_neuf <- load_ademe_data("dpe02neuf", input$code_insee, "Neuf")
+  df_existant <- load_ademe_data("dpe03existant", input$code_insee, "Existant")
+  bind_rows(df_neuf, df_existant)
+})
+
+filtered_data <- reactive({
+  df <- data_all()
+  df <- df %>% filter(!is.na(etiquette_dpe), !is.na(conso_5_usages_par_m2_ef), !is.na(surface_habitable_logement))
+  if (input$source_dpe != "Tous") {
+    df <- df %>% filter(source == input$source_dpe)
+  }
+  df$etiquette_dpe <- factor(df$etiquette_dpe, levels = c("A", "B", "C", "D", "E", "F", "G"))
+  df
+})
+```
+
+# Contexte
+
+Dans un contexte marqué par l’accélération du changement climatique et la hausse des coûts énergétiques, la sobriété énergétique devient une priorité nationale. 
+
+Pour pallier ce problème, le Diagnostic de Performance Énergétique (DPE) a été mis en place afin d’évaluer la performance énergétique et climatique des bâtiments.Il consiste en une étiquette pouvant aller de A à G pour chaque logement ou bâtiment, qui évalue sa consommation d’énergie et son impact en terme d’émission de gaz à effet de serre. Il permet d’identifier les passoires énergétiques, d’informer les occupants et de recommander des travaux d’amélioration à réaliser. Cependant, les consommations affichées  dans les DPE reposent sur des calculs conventionnels standardisés qui ne tiennent  pas en compte des usages réels, du mode de vie ou du taux d’occupation.
+
+Pour accompagner les acteurs dans la transition énergétique, Enedis souhaite proposer des  analyses et des chiffres clés. C’est dans cette perspective que s’inscrit la mise en œuvre de ce projet, notre application d’analyse énergétique constituant l’un des outils permettant d’objectiver les consommations réelles et de guider les décisions de rénovation.
+
+
+
+# Contexte des données
+
+Les données utilisées proviennent du site de l’ADEME. Notre analyse porte sur le département du Rhône (69).
+Pour chaque logement, les données que  nous avons relevées sont les suivantes:
+
+* Type d’énergie
+* Surface habitable ($m^2$)
+* Typologie
+* Classe DPE
+* Consommation totale (kWh)
+* Consommation par $m^2$ (kWh/$m^2$)
+* Source : Neuf / Existant
+
+## 📊 Chiffres clés
+
+```{r}
+renderTable({
+  df <- filtered_data()
+  n <- nrow(df)
+  conso_moy <- round(mean(df$conso_5_usages_par_m2_ef, na.rm = TRUE), 2)
+  cde <- round(nrow(df %>% filter(etiquette_dpe %in% c("C", "D", "E"))) / n * 100, 1)
+  gaz_elec <- round(nrow(df %>% filter(type_energie_n1 %in% c("Électricité", "Gaz Naturel"))) / n * 100, 1)
+  cor <- if (n > 1) round(cor(df$surface_habitable_logement, df$conso_5_usages_ef, use = "complete.obs"), 2) else "N/A"
+
+  tibble(
+    `Nombre de logements analysés` = n,
+    `Consommation moyenne par m² (kWh/m²)` = conso_moy,
+    `% logements en C/D/E` = cde,
+    `% gaz ou électricité` = gaz_elec,
+    `Corrélation surface/conso` = cor
+  )
+})
+```
+
+# Problématique
+
+**En quoi la classe DPE, le type d'énergie et la surface habitable influencent-ils la consommation énergétique réelle des logements dans le Rhône ?**
+
+# Analyse et Visualisations
+
+## 📈 Répartition des classes DPE
+
+```{r}
+renderPlot({
+  ggplot(filtered_data(), aes(x = etiquette_dpe)) +
+    geom_bar(fill = "#1423dc") +
+    theme_minimal() +
+    labs(x = "Classe DPE", y = "Nombre de logements",
+         title = paste("Répartition des classes DPE -", input$source_dpe)) +
+    scale_y_continuous(labels = comma)
+})
+```
+
+Pour l’intégralité des logements du département du Rhône, l’histogramme montre une forte concentration dans les classes C à E, traduisant une performance énergétique moyenne. Les classes A et B sont très peu représentées, surtout pour les logements “existants”,tandis que les logements “neufs” tendent à se concentrer davantage vers les classes A et B. Les classes F et G, correspondant aux passoires thermiques, restent présentes mais minoritaires, ce qui confirme l’impact progressif des politiques de rénovation énergétique.
+
+Cette répartition souligne la nécessité de renforcer les politiques de rénovation pour les logements “existants”, encore trop consommateurs. Elle met également en évidence l’efficacité des réglementations pour les constructions neuves.
+
+
+## 📉 Consommation par m² en fonction du DPE 
+
+```{r}
+renderPlot({
+  ggplot(filtered_data(), aes(x = etiquette_dpe, y = conso_5_usages_par_m2_ef)) +
+    geom_boxplot(fill = "#96cd32") +
+    theme_minimal() +
+    labs(x = "Classe DPE", y = "Consommation par m² (kWh/m²)",
+         title = "Distribution par classe DPE") +
+    scale_y_continuous(labels = comma)
+})
+```
+On peut voir que plus la classe DPE est mauvaise, plus la consommation moyenne d’électricité par m² augmente. De même, les écarts de consommation entre les différents logements augmentent. Au sein des différentes classes, la classe B est celle avec des valeurs les plus resserrées, en notant néanmoins un certain nombre d’extremums.
+
+Ce graphique met en évidence le lien important entre DPE et consommation d’énergie au m².
+
+## 🔋 Répartition des types d’énergie
+
+```{r}
+renderPlot({
+  ggplot(filtered_data(), aes(x = type_energie_n1)) +
+    geom_bar(fill = "#1423dc") +
+    coord_flip() +
+    theme_minimal() +
+    labs(x = "Type d'énergie", y = "Nombre de logements",
+         title = "Répartition des types d'énergie") +
+    scale_y_continuous(labels = comma)
+})
+```
+Le gaz naturel et l’électricité sont les deux principales énergies les plus utilisées. Le fioul et le bois sont minoritaires, principalement utilisés dans les logements “existants”. Les énergies renouvelables restent faiblement représentées mais progressent dans les logements “neufs”. Ces chiffres illustrent la dépendance énergétique encore élevée aux sources fossiles.  
+
+La transition énergétique est amorcée mais inégale : le passage vers des énergies moins carbonées reste un enjeu majeur. Ce diagramme illustre l’évolution progressive  vers ces systèmes énergétiques plus durables dans les constructions récentes.
+
+
+## 🏠 Consommation totale en fonction de la surface habitable
+
+```{r}
+renderPlot({
+  ggplot(filtered_data(), aes(x = surface_habitable_logement, y = conso_5_usages_ef)) +
+    geom_point(alpha = 0.5, color = "#96cd32") +
+    geom_smooth(method = "lm", color = "red", se = FALSE) +
+    theme_minimal() +
+    labs(x = "Surface habitable (m²)", y = "Consommation totale (kWh)",
+         title = "Surface vs Consommation énergétique") +
+    scale_x_continuous(labels = comma) +
+    scale_y_continuous(labels = comma)
+})
+```
+La corrélation positive entre surface et consommation indique que plus la surface augmente, plus la consommation totale croît, mais pas de manière proportionnelle. En effet, la relation n’est pas linéaire : certains grands logements consomment peu, tandis que certains petits logements consomment beaucoup.
+
+La consommation dépend à la fois de la taille et de la performance énergétique du logement.
+Ce graphique met en évidence la nécessité de considérer la consommation par m² plutôt que la consommation totale pour des comparaisons pertinentes.
+
+## 📊 DPE × Énergie
+
+```{r}
+renderTable({
+  filtered_data() %>%
+    count(etiquette_dpe, type_energie_n1) %>%
+    pivot_wider(names_from = type_energie_n1, values_from = n, values_fill = 0)
+})
+```
+
+Ce tableau met en relation la classe DPE des logements et leur source d’énergie principale. On observe que les logements électriques sont répartis sur l’ensemble des classes, mais sont majoritaires dans les classes A à D, ce qui reflète une meilleure performance énergétique. À l’inverse, les logements utilisant le gaz naturel ou le fioul sont plus présents dans les classes E à G, traduisant une consommation plus élevée et une efficacité moindre. Les énergies renouvelables (bois, solaire, etc.) restent marginales, mais tendent à se concentrer dans les classes intermédiaires ou performantes. Cette répartition souligne que le type d’énergie utilisé influence fortement la performance énergétique globale du logement, et que le choix énergétique est un levier clé pour améliorer le DPE.
+
+# Conclusion
+
+Les indicateurs et graphiques convergent vers un même constat :
+* Les performances énergétiques varient fortement selon le type de logement et la source d’énergie.
+* Le neuf tire les résultats vers le haut, tandis que l’ancien reste majoritairement énergivore.
+* La transition énergétique est en marche mais doit s’appuyer sur des actions ciblées : rénovation des passoires, substitution des énergies fossiles, et sensibilisation aux usages.
+
+L’application Shiny constitue donc un outil d’aide à la décision permettant de suivre les KPI en temps réel, d’évaluer les priorités territoriales, et d’orienter les investissements de rénovation de manière objective et géolocalisée.
+
+
+
+---
+
